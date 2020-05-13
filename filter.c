@@ -25,8 +25,8 @@ void filterTask(void *pvParameters) {
 
     // local internal state.
     double estimate[3] = {0.0};
-    double alpha = 0.99;
-    double h = 0.01;
+    double alpha = 0.5;
+    double h = 0.001;
     double gamma = alpha/(h+alpha);
 
 
@@ -35,11 +35,11 @@ void filterTask(void *pvParameters) {
         xSemaphoreTake(sensors_sem,portMAX_DELAY);        
         memcpy(gyro_data, params->gyro_data, sizeof(gyro_data));
         memcpy(acc_data, params->acc_data, sizeof(acc_data));
-        xSemaphoreGive(sensors_sem);
+ 
         // apply filter
         
         // estimate of the yaw angle provided as an example
-        estimate[2] += 0.01 * gyro_data[2];
+        estimate[2] += h * gyro_data[2];
 	    double phiA = atan2(acc_data[1],acc_data[2])/Pi*180;
 	    double thetaA = atan2(-acc_data[0], sqrt(pow(acc_data[1],2) + pow(acc_data[2],2)))/Pi*180;
 
@@ -51,20 +51,20 @@ void filterTask(void *pvParameters) {
 	    estimate[0] =(1-gamma)*phiA + gamma*(phiG);
 	    estimate[1] = (1-gamma)*thetaA + gamma*(thetaG);
 	    estimate[2] += gyro_data[2] * h;
-	    xSemaphoreGive(estimate_sem);
 	
 
         // example of how to log some intermediate calculation
                params->log_data[0] = estimate[0] ;
 	params->log_data[1] = estimate[1] ;
-	params->log_data[2] +=  0.01 * gyro_data[2] ;
+	params->log_data[2] += estimate[2] ;
 	params->log_data[3] = gyro_data[2] ;
-
+	 xSemaphoreGive(estimate_sem);
+	 xSemaphoreGive(sensors_sem);
         // write estimates output
         memcpy(params->estimate, estimate, sizeof(estimate));
 
-        // sleep 10ms to make this task run at 100Hz
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        // sleep 1ms to make this task run at 100Hz
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
